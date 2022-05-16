@@ -57,11 +57,6 @@ while True:
     if key == ord("q"):
         break
 
-# if we are using a webcam, release the pointer
-if not args.get("video", False):
-    vs.stop()
-    # otherwise, release the file pointer
-else:
-    vs.release()
-    # close all windows
+vs.release()
+# close all windows
 cv2.destroyAllWindows()
