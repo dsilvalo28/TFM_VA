@@ -5,7 +5,7 @@ import time
 import cv2
 
 
-# initialize a dictionary that maps strings to their corresponding
+# initialize a dictionary that maps strings to their correspondings
 # OpenCV object tracker implementations
 OPENCV_OBJECT_TRACKERS = {
     "csrt": cv2.TrackerCSRT_create,
@@ -51,7 +51,7 @@ while True:
                             showCrosshair=True)
         # create a new object tracker for the bounding box and add it
         # to our multi-object tracker
-        tracker = OPENCV_OBJECT_TRACKERS["csrt"]()
+        tracker = OPENCV_OBJECT_TRACKERS["mosse"]()
         trackers.add(tracker, frame, box)
 
     if key == ord("q"):
