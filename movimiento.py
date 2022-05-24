@@ -53,6 +53,7 @@ def calcular_rectangulos(posibles_frames, ):
             (x, y, w, h) = [int(float(v)) for v in rectangulo.split(", ")[1:-1]]
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
+
 videoPath = "dashcam_boston.mp4"
 vs = cv2.VideoCapture(videoPath)
 
