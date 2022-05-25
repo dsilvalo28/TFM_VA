@@ -44,7 +44,30 @@ def calcular_movimiento(tag, box1, box2, n_frames1, n_frames2):
     return coordenadas
 
 
-def calcular_rectangulos(posibles_frames, ):
+def ordenar_diccionario_trackers(dic_t, n_tracker_eliminar, n_trackers_total):
+    print(dic_t)
+
+    for i in range(n_tracker_eliminar, n_trackers_total):
+        dic_t[i] = dic_t.get(i + 1)
+
+    dic_t.pop(i)
+    return dic_t
+
+
+def actualizar_trackers(dic_t, track, n_trackers_total):
+    nuevo_tracker = cv2.MultiTracker_create()
+    print(dic_t)
+
+    for i in range(n_trackers_total + 1):
+        ultimo_box = dic_t.get(i)[1][-1]
+        ultimo_frame = dic_t.get(i)[2][-1]
+
+        nuevo_tracker.add(track, ultimo_frame, ultimo_box)
+
+    return nuevo_tracker
+
+
+def calcular_rectangulos(posibles_frames):
     if n_frames in posibles_frames:
         df_aux = medidas[medidas["Frame"] == n_frames]
         rectangulos = list(df_aux["Box"])
@@ -66,6 +89,7 @@ OPENCV_OBJECT_TRACKERS = {
 }
 # initialize OpenCV's special multi-object tracker
 trackers = cv2.MultiTracker_create()
+tracker = OPENCV_OBJECT_TRACKERS["csrt"]()
 
 videoPath = "dashcam_boston.mp4"
 vs = cv2.VideoCapture(videoPath)
@@ -75,7 +99,12 @@ boxes = []
 
 etiquetas_finales = []
 dic_etiquetas = {}
+dic_trackers = {}
+dic_final = {}
+list_boxes = []
+list_frames = []
 n_frames = 1
+n_tracker = 0
 posibles_frames = list(medidas["Frame"])
 
 # loop over frames from the video stream
@@ -90,15 +119,27 @@ while True:
     frame = imutils.resize(frame, width=600)
     # grab the updated bounding box coordinates (if any) for each
     # object that is being tracked
+    print(trackers.getObjects())
+
     (success, boxes) = trackers.update(frame)
-    print((success, boxes))
+    print(trackers.getObjects())
+
     # loop over the bounding boxes and draw then on the frame
+    cont_trackers = 0
     for box in boxes:
+        dic_trackers.get(cont_trackers)[1].append(box)
+        dic_trackers.get(cont_trackers)[2].append(n_frames)
+
         (x, y, w, h) = [int(v) for v in box]
         cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        cont_trackers += 1
     # show the output frame
     cv2.imshow("Frame", frame)
-    key = cv2.waitKey(30) & 0xFF
+
+    if n_frames == 1:
+        key = cv2.waitKey(300) & 0xFF
+    else:
+        key = cv2.waitKey(200) & 0xFF
     # if the 's' key is selected, we are going to "select" a bounding
     # box to track
     if key == ord("s"):
@@ -109,20 +150,23 @@ while True:
         # create a new object tracker for the bounding box and add it
         # to our multi-object tracker
         for box in boxes:
-            print(box)
             etiqueta = input("Introduce etiqueta")
             if etiqueta in dic_etiquetas.keys():
-                etiquetas_finales.append(
-                    calcular_movimiento(
-                        etiqueta, dic_etiquetas.get(etiqueta)[0], box,
-                        dic_etiquetas.get(etiqueta)[1], n_frames))
-                trackers.clean()
-                print(etiquetas_finales)
-            else:
-                dic_etiquetas[etiqueta] = (box, n_frames)
+                n_tracker_eli = dic_etiquetas.get(etiqueta)[0]
+                dic_final[etiqueta] = (dic_trackers.get(n_tracker_eli)[1], dic_trackers.get(n_tracker_eli)[2])
 
-                tracker = OPENCV_OBJECT_TRACKERS["mosse"]()
+                dic_trackers = ordenar_diccionario_trackers(dic_trackers, n_tracker_eli, n_tracker)
+                trackers = actualizar_trackers(dic_trackers, tracker, n_tracker)
+
+            else:
+
+                dic_trackers[n_tracker] = (etiqueta, list([box]), list([n_frames]))
+                dic_etiquetas[etiqueta] = (n_tracker, box, n_frames)
+                print(box)
+
                 trackers.add(tracker, frame, box)
+                n_tracker += 1
+    n_frames += 1
 
     if key == ord("q"):
         break
