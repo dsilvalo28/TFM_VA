@@ -44,25 +44,34 @@ def calcular_movimiento(tag, box1, box2, n_frames1, n_frames2):
     return coordenadas
 
 
-def ordenar_diccionario_trackers(dic_t, n_tracker_eliminar, n_trackers_total):
-    print(dic_t)
+def ordenar_diccionario_trackers(dic_t, dic_e, n_tracker_eliminar, n_trackers_total):
+
+    etiqueta_borrar = dic_t.get(n_tracker_eliminar)[0]
 
     for i in range(n_tracker_eliminar, n_trackers_total):
+        # actualizar tracker de diccionario etiquetas
+        if dic_t.get(i + 1):
+            etiqueta_nueva = dic_t.get(i + 1)[0]
+
+            valor_antiguo = dic_e.get(etiqueta_nueva)
+            valor_nuevo = (i, valor_antiguo[1], valor_antiguo[2])
+            dic_e[etiqueta_nueva] = valor_nuevo
+
         dic_t[i] = dic_t.get(i + 1)
 
-    dic_t.pop(i)
-    return dic_t
+    dic_t.pop(n_trackers_total - 1)
+    dic_e.pop(etiqueta_borrar)
+
+    return dic_t, dic_e
 
 
 def actualizar_trackers(dic_t, track, n_trackers_total):
     nuevo_tracker = cv2.MultiTracker_create()
-    print(dic_t)
-
-    for i in range(n_trackers_total + 1):
-        ultimo_box = dic_t.get(i)[1][-1]
-        ultimo_frame = dic_t.get(i)[2][-1]
-
-        nuevo_tracker.add(track, ultimo_frame, ultimo_box)
+    for i in range(n_trackers_total):
+        ultimo_box = dic_t.get(i)[1]
+        ultimo_frame = dic_t.get(i)[3]
+        track = OPENCV_OBJECT_TRACKERS["mosse"]()
+        nuevo_tracker.add(track, ultimo_frame, ultimo_box[-1])
 
     return nuevo_tracker
 
@@ -89,7 +98,6 @@ OPENCV_OBJECT_TRACKERS = {
 }
 # initialize OpenCV's special multi-object tracker
 trackers = cv2.MultiTracker_create()
-tracker = OPENCV_OBJECT_TRACKERS["csrt"]()
 
 videoPath = "dashcam_boston.mp4"
 vs = cv2.VideoCapture(videoPath)
@@ -119,16 +127,17 @@ while True:
     frame = imutils.resize(frame, width=600)
     # grab the updated bounding box coordinates (if any) for each
     # object that is being tracked
-    print(trackers.getObjects())
-
     (success, boxes) = trackers.update(frame)
-    print(trackers.getObjects())
 
     # loop over the bounding boxes and draw then on the frame
     cont_trackers = 0
     for box in boxes:
         dic_trackers.get(cont_trackers)[1].append(box)
         dic_trackers.get(cont_trackers)[2].append(n_frames)
+        dic_trackers[cont_trackers] = (dic_trackers.get(cont_trackers)[0], dic_trackers.get(cont_trackers)[1],
+                                       dic_trackers.get(cont_trackers)[2],
+                                       frame)
+        # dic_trackers.get(cont_trackers)[3].append(frame)
 
         (x, y, w, h) = [int(v) for v in box]
         cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
@@ -139,7 +148,7 @@ while True:
     if n_frames == 1:
         key = cv2.waitKey(300) & 0xFF
     else:
-        key = cv2.waitKey(200) & 0xFF
+        key = cv2.waitKey(100) & 0xFF
     # if the 's' key is selected, we are going to "select" a bounding
     # box to track
     if key == ord("s"):
@@ -155,21 +164,26 @@ while True:
                 n_tracker_eli = dic_etiquetas.get(etiqueta)[0]
                 dic_final[etiqueta] = (dic_trackers.get(n_tracker_eli)[1], dic_trackers.get(n_tracker_eli)[2])
 
-                dic_trackers = ordenar_diccionario_trackers(dic_trackers, n_tracker_eli, n_tracker)
+                dic_trackers, dic_etiquetas = ordenar_diccionario_trackers(dic_trackers, dic_etiquetas,
+                                                                           n_tracker_eli, n_tracker)
+                n_tracker -= 1
                 trackers = actualizar_trackers(dic_trackers, tracker, n_tracker)
 
             else:
 
-                dic_trackers[n_tracker] = (etiqueta, list([box]), list([n_frames]))
+                dic_trackers[n_tracker] = (etiqueta, list([box]), list([n_frames]), frame)
                 dic_etiquetas[etiqueta] = (n_tracker, box, n_frames)
                 print(box)
 
+                tracker = OPENCV_OBJECT_TRACKERS["mosse"]()
                 trackers.add(tracker, frame, box)
                 n_tracker += 1
     n_frames += 1
 
     if key == ord("q"):
         break
+
+print(dic_final)
 
 vs.release()
 # close all windows
